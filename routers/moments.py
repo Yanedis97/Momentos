@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Body
 from core.connection import get_db
 from models.moment import Moment
-from services.moment_service import MomentService
+from classes.moments import MomentService
 
 router = APIRouter(prefix="/moments", tags=["Moments"])
 
