@@ -1,6 +1,4 @@
 from fastapi import HTTPException
-from datetime import datetime
-from classes.playerProgress import PlayerMomentProgress
 
 class MomentService:
 
@@ -79,80 +77,3 @@ class MomentService:
             raise HTTPException(status_code=404, detail="Moment not found")
 
         return {"message": "Moment updated successfully"}
-
-    @staticmethod
-    def play_step(db, moment_id: str, player_id: str, step: str):
-
-        moment = db.moments.find_one({"_id": moment_id})
-
-        if not moment:
-            raise HTTPException(status_code=404, detail="Moment not found")
-
-        steps_order = [
-            "inicio",
-            "contexto",
-            "evento",
-            "suceso",
-            "reaccion",
-            "dato_curioso"
-        ]
-
-        if step not in steps_order:
-            raise HTTPException(status_code=400, detail="Invalid step")
-
-        states = moment.get("states", {})
-
-        if step not in states:
-            raise HTTPException(status_code=400, detail="Step not found")
-
-        current_index = steps_order.index(step)
-
-        next_step = (
-            steps_order[current_index + 1]
-            if current_index < len(steps_order) - 1
-            else None
-        )
-
-        is_last = next_step is None
-
-        progress = PlayerMomentProgress.get_progress(db, player_id, moment_id)
-
-        if not progress:
-            if step != "inicio":
-                raise HTTPException(
-                    status_code=400,
-                    detail="You must start from 'inicio'"
-                )
-            PlayerMomentProgress.start_moment(db, player_id, moment_id)
-        else:
-            current_step = progress["current_step"]
-            current_index = steps_order.index(current_step)
-
-            allowed_steps = [
-                current_step,
-                steps_order[current_index + 1]
-                if current_index < len(steps_order) - 1
-                else None
-            ]
-
-            if step not in allowed_steps:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Invalid step order"
-                )
-
-        PlayerMomentProgress.advance_step(
-            db,
-            player_id,
-            moment_id,
-            step,
-            is_last
-        )
-
-        return {
-            "moment_id": moment_id,
-            "step": step,
-            "text": states[step]["text"],
-            "next_step": next_step,
-            "is_last": is_last
-        }

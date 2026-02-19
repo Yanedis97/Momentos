@@ -37,9 +37,3 @@ def create_group_moments(list_moment: list = Body(...)):
 def update_moment(moment_id: str, item: dict = Body(...)):
     db = get_db()
     return MomentService.update_moment(db, moment_id, item)
-
-
-@router.get("/{moment_id}/play")
-def play_step(moment_id: str, player_id: str, step: str):
-    db = get_db()
-    return MomentService.play_step(db, moment_id, player_id, step)

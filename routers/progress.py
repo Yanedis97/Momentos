@@ -1,18 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Body, Query
 from core.connection import get_db
-from classes.playerProgress import PlayerMomentProgress
+from classes.playerMomentProgress import PlayerMomentProgress
 
 router = APIRouter(prefix="/progress", tags=["Player Progress"])
-
-
-@router.post("/{player_id}/{moment_id}/start")
-def start_moment(player_id: str, moment_id: str):
-    db = get_db()
-
-    try:
-        return PlayerMomentProgress.start_moment(db, player_id, moment_id)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/{player_id}/{moment_id}")
@@ -25,23 +15,33 @@ def get_progress(player_id: str, moment_id: str):
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.put("/{player_id}/{moment_id}/advance")
-def advance_step(player_id: str, moment_id: str, step: str, is_last: bool):
+@router.post("/play")
+def play_step(
+    moment_id: str = Body(...), 
+    player_id: str = Body(...), 
+    step: str = Body(...)
+    ):
+    
     db = get_db()
-
     try:
-        return PlayerMomentProgress.advance_step(
-            db, player_id, moment_id, step, is_last
-        )
+        return PlayerMomentProgress.play_step(db, moment_id, player_id, step)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.put("/{player_id}/{moment_id}/pause")
-def pause_moment(player_id: str, moment_id: str):
-    db = get_db()
-
+@router.get("/{player_id}")
+def get_player_moments(
+    player_id: str,
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100)
+):
+    db = get_db() 
     try:
-        return PlayerMomentProgress.pause_moment(db, player_id, moment_id)
+        return PlayerMomentProgress.get_player_moments_paginated(
+        db,
+        player_id,
+        page,
+        limit
+    )  
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
