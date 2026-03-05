@@ -35,12 +35,12 @@ class AuthService:
         if not player:
             raise HTTPException(status_code=401, detail="Invalid credentials")
 
-        if "password_hash" not in player:
+        if "password" not in player:
             raise HTTPException(status_code=400, detail="Password not configured")
 
         is_valid = AuthService.verify_password(
             login_data.password,
-            player["password_hash"]
+            player["password"]
         )
 
         if not is_valid:
