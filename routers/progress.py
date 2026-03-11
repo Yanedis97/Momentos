@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException, Body, Query
+from fastapi import APIRouter, HTTPException, Body, Query, Depends
 from core.connection import get_db
 from classes.playerMomentProgress import PlayerMomentProgress
+from core.security import verify_token
 
-router = APIRouter(prefix="/progress", tags=["Player Progress"])
+router = APIRouter(prefix="/progress", tags=["Player Progress"], dependencies=[Depends(verify_token)])
 
 
 @router.get("/{player_id}/{moment_id}")

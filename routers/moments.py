@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException, Body
+from fastapi import APIRouter, HTTPException, Body, Depends
 from core.connection import get_db
 from models.moment import Moment
 from classes.moments import MomentService
+from core.security import verify_token
 
-router = APIRouter(prefix="/moments", tags=["Moments"])
+router = APIRouter(prefix="/moments", tags=["Moments"], dependencies=[Depends(verify_token)])
 
 
 @router.get("/{moment_id}")

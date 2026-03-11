@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException, Body
+from fastapi import APIRouter, Depends, Body
 from core.connection import get_db
 from models.player import Player
 from classes.players import PlayerService
+from core.security import verify_token
 
-router = APIRouter(prefix="/players", tags=["Players"])
+router = APIRouter(prefix="/players", tags=["Players"], dependencies=[Depends(verify_token)])
 
 
 @router.get("/{player_id}")
