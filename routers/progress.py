@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Body, Query, Depends
 from core.connection import get_db
 from classes.playerMomentProgress import PlayerMomentProgress
+from classes.playerDiscoveries import PlayerDiscoveries
 from core.security import verify_token
 
 router = APIRouter(prefix="/progress", tags=["Player Progress"], dependencies=[Depends(verify_token)])
@@ -25,7 +26,12 @@ def play_step(
     
     db = get_db()
     try:
-        return PlayerMomentProgress.play_step(db, moment_id, player_id, step)
+
+        progress =  PlayerMomentProgress.play_step(db, moment_id, player_id, step)
+        
+        PlayerDiscoveries.accept_moment(db, player_id, moment_id)
+        
+        return progress
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

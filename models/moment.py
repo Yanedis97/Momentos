@@ -3,6 +3,8 @@ from pydantic import BaseModel
 class Location(BaseModel):
     country: str
     city: str
+    lat: float
+    lng: float
 
 class TextBlock(BaseModel):
     text: str
