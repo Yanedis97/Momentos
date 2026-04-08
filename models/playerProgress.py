@@ -12,6 +12,7 @@ class PlayerMomentProgress(BaseModel):
 
     steps_seen: List[str] = Field(default_factory=list)
 
+    flags: dict = Field(default_factory=dict)
     started_at: datetime
     last_interaction_at: datetime
     completed_at: Optional[datetime] = None

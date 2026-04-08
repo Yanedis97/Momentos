@@ -3,6 +3,8 @@ from core.connection import get_db
 from classes.playerMomentProgress import PlayerMomentProgress
 from classes.playerDiscoveries import PlayerDiscoveries
 from core.security import verify_token
+from typing import Optional
+
 
 router = APIRouter(prefix="/progress", tags=["Player Progress"], dependencies=[Depends(verify_token)])
 
@@ -21,13 +23,14 @@ def get_progress(player_id: str, moment_id: str):
 def play_step(
     moment_id: str = Body(...), 
     player_id: str = Body(...), 
-    step: str = Body(...)
+    step: str = Body(...),
+    choice_next: Optional[str] = Body(None)
     ):
     
     db = get_db()
     try:
 
-        progress =  PlayerMomentProgress.play_step(db, moment_id, player_id, step)
+        progress =  PlayerMomentProgress.play_step(db, moment_id, player_id, step, choice_next)
         
         PlayerDiscoveries.accept_moment(db, player_id, moment_id)
         
