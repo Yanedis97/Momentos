@@ -58,87 +58,54 @@ class PlayerMomentProgress:
             "player_id": player_id,
             "moment_id": moment_id
         })
-        
+
         start_step = moment.get("meta", {}).get("start", "inicio")
+        flags = {}
 
         if not progress:
             if step != start_step:
                 raise ValueError(f"You must start from '{start_step}'")
-
             PlayerMomentProgress.start_moment(db, player_id, moment_id)
 
         else:
             current_step = progress["current_step"]
+            flags = progress.get("flags", {})
 
             if current_step not in states:
-                start_step = moment.get("meta", {}).get("start", "inicio")
-
-                PlayerMomentProgress._advance_step(
-                    db,
-                    player_id,
-                    moment_id,
-                    start_step
-                )
-
+                PlayerMomentProgress._advance_step(db, player_id, moment_id, start_step)
                 current_step = start_step
-                
-            current_state = states[current_step]
 
+            current_state = states[current_step]
             state_type = current_state.get("type", "narrative")
 
-            # Validar transición según tipo
             if state_type == "decision":
                 choices = current_state.get("choices", [])
-
-                selected_choice = None
-
-                for c in choices:
-                    if c["next"] == choice_next:
-                        selected_choice = c
-                        break
+                selected_choice = next(
+                    (c for c in choices if c["next"] == choice_next), None
+                )
 
                 if not selected_choice:
                     raise ValueError("Invalid choice")
-                
+
                 if "set" in selected_choice:
-                    PlayerMomentProgress._apply_flags(
-                        db,
-                        player_id,
-                        moment_id,
-                        selected_choice["set"]
+                    # captura los flags actualizados
+                    flags = PlayerMomentProgress._apply_flags(
+                        db, player_id, moment_id, selected_choice["set"]
                     )
             else:
                 expected_next = current_state.get("next")
-
                 if expected_next and step not in [expected_next, current_step]:
                     raise ValueError("Invalid step flow")
 
-            # avanzar progreso
-            PlayerMomentProgress._advance_step(
-                db,
-                player_id,
-                moment_id,
-                step
-            )
+            PlayerMomentProgress._advance_step(db, player_id, moment_id, step)
 
-        # determinar si es último
         state = states[step]
-
-        is_last = (
-            state.get("next") is None and
-            not state.get("choices")
-        )
+        is_last = state.get("next") is None and not state.get("choices")
 
         if is_last:
-            PlayerMomentProgress._advance_step(
-                db,
-                player_id,
-                moment_id,
-                step,
-                "completed"
-            )
+            PlayerMomentProgress._advance_step(db, player_id, moment_id, step, "completed")
 
-        return is_last
+        return is_last, flags
 
     @staticmethod
     def _advance_step(db, player_id: str, moment_id: str, step: str, status: str ="in_progress"):
@@ -179,22 +146,12 @@ class PlayerMomentProgress:
         if step not in states:
             raise ValueError("Step not found")
 
-        is_last = PlayerMomentProgress.validate_and_advance(
-            db,
-            player_id,
-            moment_id,
-            step,
-            choice_next
+        # validate_and_advance ahora retorna los flags actualizados
+        is_last, flags = PlayerMomentProgress.validate_and_advance(
+            db, player_id, moment_id, step, choice_next
         )
 
         state = states[step]
-
-        progress = db.player_progress.find_one({
-            "player_id": player_id,
-            "moment_id": moment_id
-        })
-
-        flags = progress.get("flags", {})
 
         if "conditions" in state:
             if not PlayerMomentProgress._check_conditions(state["conditions"], flags):
@@ -204,8 +161,7 @@ class PlayerMomentProgress:
             "moment_id": moment_id,
             "step": step,
             "type": state.get("type", "narrative"),
-            "scene": state.get("scene", {
-                "text": state.get("text", "")}),
+            "scene": state.get("scene", {"text": state.get("text", "")}),
             "autoNext": state.get("autoNext"),
             "duration": state.get("duration"),
             "choices": state.get("choices", []),
@@ -217,13 +173,15 @@ class PlayerMomentProgress:
     def _check_conditions(conditions: list, flags: dict):
         if not conditions:
             return True
-
+        
         for condition in conditions:
             key, expected = condition.split("==")
             key = key.strip()
-            expected = expected.strip()
+            expected = expected.strip().lower()
 
-            if str(flags.get(key)) != expected:
+            actual = str(flags.get(key)).lower()
+            
+            if actual != expected:
                 return False
 
         return True
@@ -239,9 +197,7 @@ class PlayerMomentProgress:
             raise ValueError("Invalid pagination values")
 
         skip = (page - 1) * limit
-
         query = {"player_id": player_id}
-
         total = db.player_progress.count_documents(query)
 
         cursor = (
@@ -254,12 +210,20 @@ class PlayerMomentProgress:
 
         results = []
         for doc in cursor:
+            moment = db.moments.find_one(
+                {"_id": doc["moment_id"]},
+                {"title": 1, "location.country": 1, "timeline.year": 1}
+            )
+
             results.append({
                 "moment_id": doc["moment_id"],
                 "status": doc["status"],
                 "current_step": doc["current_step"],
                 "last_interaction_at": doc["last_interaction_at"],
-                "completed_at": doc["completed_at"]
+                "completed_at": doc["completed_at"],
+                "title": moment.get("title") if moment else doc["moment_id"],
+                "country": moment.get("location", {}).get("country") if moment else None,
+                "year": moment.get("timeline", {}).get("year") if moment else None,
             })
 
         return {
@@ -272,19 +236,49 @@ class PlayerMomentProgress:
         }
     
     @staticmethod
-    def _apply_flags(db, player_id, moment_id, new_flags: dict):
+    def _apply_flags(db, player_id, moment_id, new_flags: dict) -> dict:
         progress = db.player_progress.find_one({
             "player_id": player_id,
             "moment_id": moment_id
         })
 
         current_flags = progress.get("flags", {})
-
         updated_flags = {**current_flags, **new_flags}
 
         db.player_progress.update_one(
             {"player_id": player_id, "moment_id": moment_id},
-            {
-                "$set": {"flags": updated_flags}
-            }
+            {"$set": {"flags": updated_flags}}
         )
+
+        return updated_flags
+
+    @staticmethod
+    def get_start_step(db, player_id: str, moment_id: str) -> dict:
+        moment = db.moments.find_one({"_id": moment_id})
+
+        if not moment:
+            raise ValueError("Moment not found")
+
+        start_step = moment.get("meta", {}).get("start", "inicio")
+
+        progress = db.player_progress.find_one({
+            "player_id": player_id,
+            "moment_id": moment_id
+        })
+
+        if progress:
+            return {
+                "player_id": player_id,
+                "moment_id": moment_id,
+                "start_step": progress["current_step"],
+                "is_new": False
+            }
+
+        PlayerMomentProgress.start_moment(db, player_id, moment_id)
+
+        return {
+            "player_id": player_id,
+            "moment_id": moment_id,
+            "start_step": start_step,
+            "is_new": True
+        }

@@ -1,4 +1,5 @@
-from fastapi import HTTPException
+from pymongo.errors import BulkWriteError
+
 
 class MomentService:
 
@@ -7,7 +8,7 @@ class MomentService:
         moment = db.moments.find_one({"_id": moment_id})
 
         if moment is None:
-            raise HTTPException(status_code=404, detail="Moment not found")
+            raise ValueError("Moment not found")
 
         moment["_id"] = str(moment["_id"])
         return moment
@@ -17,15 +18,15 @@ class MomentService:
         moments = list(db.moments.find())
 
         if not moments:
-            raise HTTPException(status_code=404, detail="No moments found")
+            raise ValueError("No moments found")
 
         response = []
         for m in moments:
             response.append({
                 "id": m["_id"],
-                "title": m["title"],
-                "year": m["year"],
-                "suceso": m["states"]["suceso"]["text"]
+                "title": m.get("title"),
+                "year": m.get("timeline", {}).get("year"),
+                "suceso": m.get("states", {}).get("suceso", {}).get("scene", {}).get("text")
             })
 
         return response
@@ -36,13 +37,13 @@ class MomentService:
 
         moment_dict["_id"] = (
             f"{moment.location.country.lower()}_"
-            f"{moment.year}_"
+            f"{moment.timeline.year}_"
             f"{moment.title.lower().replace(' ', '_')}"
         )
 
         existing = db.moments.find_one({"_id": moment_dict["_id"]})
         if existing:
-            raise HTTPException(status_code=400, detail="Moment already exists")
+            raise ValueError("Moment already exists")
 
         db.moments.insert_one(moment_dict)
 
@@ -56,13 +57,20 @@ class MomentService:
             if "_id" not in moment:
                 moment["_id"] = (
                     f"{moment['location']['country'].lower()}_"
-                    f"{moment['year']}_"
+                    f"{moment['timeline']['year']}_"
                     f"{moment['title'].lower().replace(' ', '_')}"
                 )
 
             prepared.append(moment)
 
-        db.moments.insert_many(prepared)
+        try:
+            db.moments.insert_many(prepared, ordered=False)
+        except BulkWriteError as e:
+            inserted = e.details.get("nInserted", 0)
+            errors = len(e.details.get("writeErrors", []))
+            return {
+                "message": f"Insercion parcial: {inserted} creados, {errors} duplicados omitidos"
+            }
 
         return {"message": "Moments created successfully"}
 
@@ -74,6 +82,6 @@ class MomentService:
         )
 
         if result.matched_count == 0:
-            raise HTTPException(status_code=404, detail="Moment not found")
+            raise ValueError("Moment not found")
 
         return {"message": "Moment updated successfully"}

@@ -9,6 +9,18 @@ from typing import Optional
 router = APIRouter(prefix="/progress", tags=["Player Progress"], dependencies=[Depends(verify_token)])
 
 
+@router.post("/start")
+def start_moment(
+    player_id: str = Body(...),
+    moment_id: str = Body(...)
+):
+    db = get_db()
+    try:
+        return PlayerMomentProgress.get_start_step(db, player_id, moment_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
 @router.get("/{player_id}/{moment_id}")
 def get_progress(player_id: str, moment_id: str):
     db = get_db()
@@ -21,19 +33,19 @@ def get_progress(player_id: str, moment_id: str):
 
 @router.post("/play")
 def play_step(
-    moment_id: str = Body(...), 
-    player_id: str = Body(...), 
+    moment_id: str = Body(...),
+    player_id: str = Body(...),
     step: str = Body(...),
     choice_next: Optional[str] = Body(None)
-    ):
-    
+):
     db = get_db()
     try:
 
-        progress =  PlayerMomentProgress.play_step(db, moment_id, player_id, step, choice_next)
-        
-        PlayerDiscoveries.accept_moment(db, player_id, moment_id)
-        
+        progress = PlayerMomentProgress.play_step(db, moment_id, player_id, step, choice_next)
+
+        if progress["is_last"]:
+            PlayerDiscoveries.accept_moment(db, player_id, moment_id)
+
         return progress
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -45,13 +57,13 @@ def get_player_moments(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100)
 ):
-    db = get_db() 
+    db = get_db()
     try:
         return PlayerMomentProgress.get_player_moments_paginated(
-        db,
-        player_id,
-        page,
-        limit
-    )  
+            db,
+            player_id,
+            page,
+            limit
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

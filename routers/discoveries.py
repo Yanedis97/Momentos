@@ -19,3 +19,15 @@ def get_moment_discovery(
     )  
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/{player_id}/accept")
+def accept_moment(player_id: str, body: PlayerAccepted):
+    db = get_db()
+    try:
+        result = PlayerDiscoveries.accept_moment(db, player_id, body.moment_id)
+        if result.get("error"):
+            raise HTTPException(status_code=404, detail=result["message"])
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

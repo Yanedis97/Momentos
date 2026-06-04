@@ -13,28 +13,40 @@ def get_moment(moment_id: str):
     try:
         return MomentService.get_moment(db, moment_id)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.get("/")
 def get_moments():
     db = get_db()
-    return MomentService.get_moments(db)
+    try:
+        return MomentService.get_moments(db)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.post("/")
 def create_moment(moment: Moment = Body(...)):
     db = get_db()
-    return MomentService.create_moment(db, moment)
+    try:
+        return MomentService.create_moment(db, moment)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/create_all")
 def create_group_moments(list_moment: list = Body(...)):
     db = get_db()
-    return MomentService.create_group_moments(db, list_moment)
+    try:
+        return MomentService.create_group_moments(db, list_moment)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.put("/{moment_id}")
 def update_moment(moment_id: str, item: dict = Body(...)):
     db = get_db()
-    return MomentService.update_moment(db, moment_id, item)
+    try:
+        return MomentService.update_moment(db, moment_id, item)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))

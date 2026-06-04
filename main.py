@@ -6,13 +6,8 @@ app = FastAPI()
 
 origins = [
     "http://localhost:3000",
+    "http://192.168.56.1:3000",
 ]
-
-app.include_router(moments.router)
-app.include_router(progress.router)
-app.include_router(players.router)
-app.include_router(auth.router)
-app.include_router(discoveries.router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -21,3 +16,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(moments.router)
+app.include_router(progress.router)
+app.include_router(players.router)
+app.include_router(auth.router)
+app.include_router(discoveries.router)

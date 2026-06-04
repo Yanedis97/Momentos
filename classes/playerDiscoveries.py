@@ -1,7 +1,10 @@
 import random
 from datetime import datetime, timedelta, timezone
 
+
 class PlayerDiscoveries:
+
+    @staticmethod
     def get_moment_discovery(db, player_id: str):
 
         progress_collection = db["player_progress"]
@@ -63,7 +66,8 @@ class PlayerDiscoveries:
             "location": moment.get("location"),
             "expires_in": 300
         }
-    
+
+    @staticmethod
     def accept_moment(db, player_id: str, moment_id: str):
         discoveries_collection = db["player_discoveries"]
 
